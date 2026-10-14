@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Tenant {
+  id          Int         @id @default(autoincrement())
+  name        String
+  slug        String      @unique
+  users       User[]
+  privileges  Privilege[]
+
+  @@map("tenant")
+}
+
+model User {
+  id         Int         @id @default(autoincrement())
+  email      String      @unique
+  name       String
+  profileUrl String      @map("profile_url")
+  tenants    Tenant[]
+  privileges Privilege[]
+
+  @@map("users")
+}
+
+model Privilege {
+  id           Int           @id @default(autoincrement())
+  userId       Int
+  tenantId     Int
+  isAdmin      Boolean       @default(false)
+  applications Application[] @default([])
+  user         User          @relation(fields: [userId], references: [id])
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+
+  @@unique([userId, tenantId])
+  @@map("priviledges")
+}
+
+enum Application {
+  RESOLV
+  USTOR
+  VAPT
+}
