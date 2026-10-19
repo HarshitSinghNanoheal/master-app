@@ -5,7 +5,7 @@ import { router } from "@/routes"
 
 export function App() {
   return (
-    <ThemeProvider>
+    <ThemeProvider disableTransitionOnChange={false}>
       <AuthProvider>
         <RouterProvider router={router} />
       </AuthProvider>

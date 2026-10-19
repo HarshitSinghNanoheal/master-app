@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react"
+import { Link } from "react-router"
+import { PersonMark } from "@/components/person-mark"
+import { SwitchRow } from "@/components/switch-row"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { APPLICATIONS, type ApplicationId } from "@/features/applications/catalog"
+import {
+  APPLICATIONS,
+  type ApplicationId,
+} from "@/features/applications/catalog"
 import {
   fetchTenantUsers,
   removeTenantUser,
@@ -19,6 +24,12 @@ function draftFromUser(user: TenantMember): Draft {
   return { isAdmin: user.isAdmin, applications: user.applications }
 }
 
+function sameDraft(left: Draft, right: Draft) {
+  if (left.isAdmin !== right.isAdmin) return false
+  if (left.applications.length !== right.applications.length) return false
+  return left.applications.every((id) => right.applications.includes(id))
+}
+
 export function UsersPage() {
   const { current } = useAuth()
   const [users, setUsers] = useState<TenantMember[]>([])
@@ -26,26 +37,41 @@ export function UsersPage() {
   const [error, setError] = useState<string | null>(null)
   const [pendingId, setPendingId] = useState<number | null>(null)
   const [confirmRemoveId, setConfirmRemoveId] = useState<number | null>(null)
+  const [loaded, setLoaded] = useState(false)
 
   async function loadUsers() {
     const result = await fetchTenantUsers()
     setUsers(result.users)
-    setDrafts(Object.fromEntries(result.users.map((user) => [user.id, draftFromUser(user)])))
+    setDrafts(
+      Object.fromEntries(
+        result.users.map((user) => [user.id, draftFromUser(user)])
+      )
+    )
   }
 
   useEffect(() => {
-    void loadUsers().catch((loadError: unknown) => {
-      setError(loadError instanceof Error ? loadError.message : "Could not load users")
-    })
+    void loadUsers()
+      .catch((loadError: unknown) => {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Could not load users"
+        )
+      })
+      .finally(() => setLoaded(true))
   }, [])
 
-  function toggleApplication(userId: number, id: ApplicationId) {
+  function toggleApplication(
+    userId: number,
+    id: ApplicationId,
+    checked: boolean
+  ) {
     setDrafts((currentDrafts) => {
       const draft = currentDrafts[userId]
       if (!draft) return currentDrafts
-      const applications = draft.applications.includes(id)
-        ? draft.applications.filter((item) => item !== id)
-        : [...draft.applications, id]
+      const applications = checked
+        ? [...draft.applications, id]
+        : draft.applications.filter((item) => item !== id)
       return { ...currentDrafts, [userId]: { ...draft, applications } }
     })
   }
@@ -59,7 +85,9 @@ export function UsersPage() {
       await updateTenantUser(userId, draft)
       await loadUsers()
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Could not update user")
+      setError(
+        saveError instanceof Error ? saveError.message : "Could not update user"
+      )
     } finally {
       setPendingId(null)
     }
@@ -73,80 +101,136 @@ export function UsersPage() {
       setConfirmRemoveId(null)
       await loadUsers()
     } catch (removeError) {
-      setError(removeError instanceof Error ? removeError.message : "Could not remove user")
+      setError(
+        removeError instanceof Error
+          ? removeError.message
+          : "Could not remove user"
+      )
     } finally {
       setPendingId(null)
     }
   }
 
+  const organization = current?.tenant.name ?? "this organization"
+
   return (
-    <section className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-medium">Users</h1>
-        <p className="text-sm text-muted-foreground">
-          People in this tenant. Admins can change access or remove someone.
+    <section className="page-narrow">
+      <div className="page-intro">
+        <h1>People</h1>
+        <p>
+          Everyone in {organization}. Admins can change access or remove
+          someone.
         </p>
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <div className="flex flex-col gap-3">
+      <div className="stack">
+        {error ? (
+          <p className="notice" role="alert">
+            {error}
+          </p>
+        ) : null}
+        {!loaded && !error ? (
+          <p className="status-line">Loading people…</p>
+        ) : null}
+        {loaded && !error && users.length === 0 ? (
+          <div className="empty">
+            <p>No one is in this organization yet.</p>
+            <Link className="text-link" to="/invite">
+              Invite someone
+            </Link>
+          </div>
+        ) : null}
         {users.map((user) => {
           const draft = drafts[user.id] ?? draftFromUser(user)
+          const saved = draftFromUser(user)
+          const dirty = !sameDraft(draft, saved)
           const isSelf = current?.user.id === user.id
+          const pending = pendingId === user.id
+          const busy = pendingId !== null
           return (
-            <Card key={user.id} className="flex flex-col gap-4 p-4">
-              <div>
-                <p className="font-medium">{user.name}</p>
-                <p className="text-sm text-muted-foreground">{user.email}</p>
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
+            <article key={user.id} className="person-card">
+              <header className="person-head">
+                <PersonMark name={user.name} profileUrl={user.profileUrl} />
+                <div>
+                  <h2>{user.name}</h2>
+                  <p>{user.email}</p>
+                </div>
+                {isSelf ? <span className="pill">You</span> : null}
+              </header>
+              <div className="option-list">
+                <SwitchRow
+                  label="Admin"
                   checked={draft.isAdmin}
-                  onChange={(event) =>
+                  disabled={busy}
+                  onChange={(checked) =>
                     setDrafts((currentDrafts) => ({
                       ...currentDrafts,
-                      [user.id]: { ...draft, isAdmin: event.target.checked },
+                      [user.id]: { ...draft, isAdmin: checked },
                     }))
                   }
                 />
-                Admin
-              </label>
-              <div className="flex flex-wrap gap-4">
                 {APPLICATIONS.map((application) => (
-                  <label key={application.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={draft.applications.includes(application.id)}
-                      onChange={() => toggleApplication(user.id, application.id)}
-                    />
-                    {application.name}
-                  </label>
+                  <SwitchRow
+                    key={application.id}
+                    label={application.name}
+                    checked={draft.applications.includes(application.id)}
+                    disabled={busy}
+                    onChange={(checked) =>
+                      toggleApplication(user.id, application.id, checked)
+                    }
+                  />
                 ))}
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={() => saveUser(user.id)} disabled={pendingId === user.id}>
-                  Save
-                </Button>
-                {isSelf ? null : confirmRemoveId === user.id ? (
-                  <>
+              {confirmRemoveId === user.id ? (
+                <div
+                  className="confirm"
+                  role="group"
+                  aria-label={`Remove ${user.name}`}
+                >
+                  <p>
+                    Remove {user.name} from {organization}? They lose access
+                    until someone adds them again.
+                  </p>
+                  <div className="actions">
                     <Button
+                      type="button"
                       variant="destructive"
                       onClick={() => kickUser(user.id)}
-                      disabled={pendingId === user.id}
+                      disabled={pending}
                     >
-                      Confirm remove
+                      {pending ? "Removing…" : "Remove"}
                     </Button>
-                    <Button variant="ghost" onClick={() => setConfirmRemoveId(null)}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setConfirmRemoveId(null)}
+                      disabled={pending}
+                    >
                       Cancel
                     </Button>
-                  </>
-                ) : (
-                  <Button variant="outline" onClick={() => setConfirmRemoveId(user.id)}>
-                    Remove from tenant
+                  </div>
+                </div>
+              ) : (
+                <div className="actions">
+                  <Button
+                    type="button"
+                    onClick={() => saveUser(user.id)}
+                    disabled={!dirty || busy}
+                  >
+                    {pending ? "Saving…" : "Save"}
                   </Button>
-                )}
-              </div>
-            </Card>
+                  {isSelf ? null : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setConfirmRemoveId(user.id)}
+                      disabled={busy}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              )}
+            </article>
           )
         })}
       </div>

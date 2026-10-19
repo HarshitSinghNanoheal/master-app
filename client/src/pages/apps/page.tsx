@@ -1,15 +1,65 @@
+import { ArrowUpRight } from "lucide-react"
 import { Link } from "react-router"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { APPLICATIONS, RESOLV_URL } from "@/features/applications/catalog"
+import {
+  APPLICATIONS,
+  applicationOpenUrl,
+} from "@/features/applications/catalog"
 import { useAuth } from "@/features/auth/auth-context"
 import { readLocalSession } from "@/features/auth/session"
 
-function resolvRedirectUrl(token: string, provider: string): string {
-  const url = new URL(RESOLV_URL)
-  url.searchParams.set("token", token)
-  url.searchParams.set("provider", provider)
-  return url.toString()
+const SUMMARIES: Partial<Record<(typeof APPLICATIONS)[number]["id"], string>> =
+  {
+    RESOLV: "Issues, tickets, and releases",
+    VAPT: "Automated security testing",
+  }
+
+function ApplicationTile({
+  id,
+  name,
+  summary,
+  href,
+}: {
+  id: string
+  name: string
+  summary?: string
+  href: string | null
+}) {
+  const body = (
+    <>
+      <span className="app-mark" data-app={id} aria-hidden="true">
+        {name.charAt(0)}
+      </span>
+      <span className="app-copy">
+        <h2 className="app-name">{name}</h2>
+        {summary ? <p className="app-summary">{summary}</p> : null}
+      </span>
+    </>
+  )
+
+  if (!href) {
+    return (
+      <div className="app-tile">
+        {body}
+        <span className="app-foot">Not linked yet</span>
+      </div>
+    )
+  }
+
+  return (
+    <a
+      className="app-tile"
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {body}
+      <span className="app-foot">
+        Open
+        <ArrowUpRight size={16} strokeWidth={1.75} aria-hidden="true" />
+        <span className="sr-only"> in a new tab</span>
+      </span>
+    </a>
+  )
 }
 
 export function AppsPage() {
@@ -21,44 +71,42 @@ export function AppsPage() {
 
   const applications = current.privilege.applications.map((id) => {
     const application = APPLICATIONS.find((item) => item.id === id)
-    return { id, name: application?.name ?? id }
+    return {
+      id,
+      name: application?.name ?? id,
+      summary: SUMMARIES[id],
+      href: applicationOpenUrl(id, session),
+    }
   })
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-medium">Applications</h1>
-          <p className="text-sm text-muted-foreground">Applications you can open in this tenant.</p>
-        </div>
-        {current.privilege.isAdmin ? (
-          <Button asChild>
-            <Link to="/invite">Invite a user</Link>
-          </Button>
-        ) : null}
+    <section>
+      <div className="page-intro">
+        <h1>Applications</h1>
+        <p>
+          Choose a workspace. Linked applications open in a new tab, already
+          signed in.
+        </p>
       </div>
       {applications.length === 0 ? (
-        <p className="text-sm text-muted-foreground">You do not have access to any applications.</p>
+        <div className="empty">
+          {current.privilege.isAdmin ? (
+            <p>
+              No applications are available for this account yet. You can grant
+              access from{" "}
+              <Link className="text-link" to="/users">
+                People
+              </Link>
+              .
+            </p>
+          ) : (
+            <p>No applications are available for this account yet.</p>
+          )}
+        </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="app-grid">
           {applications.map((application) => (
-            <Card key={application.id} className="flex flex-col gap-3 p-5">
-              <div>
-                <h2 className="text-base font-medium">{application.name}</h2>
-                <p className="text-sm text-muted-foreground">{application.id}</p>
-              </div>
-              {application.id === "RESOLV" && session ? (
-                <Button asChild className="w-fit">
-                  <a
-                    href={resolvRedirectUrl(session.access_token, session.provider)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Open Resolv
-                  </a>
-                </Button>
-              ) : null}
-            </Card>
+            <ApplicationTile key={application.id} {...application} />
           ))}
         </div>
       )}

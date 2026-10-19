@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from "react-router"
 import { createBrowserRouter } from "react-router"
 import { AppShell } from "@/components/app-shell"
+import { QuietStage } from "@/components/quiet-stage"
 import { useAuth } from "@/features/auth/auth-context"
 import { AppsPage } from "@/pages/apps/page"
 import { InvitePage } from "@/pages/invite/page"
@@ -10,7 +11,7 @@ import { UsersPage } from "@/pages/users/page"
 function RequireAuth() {
   const { status } = useAuth()
   if (status === "loading") {
-    return <p className="p-6 text-sm text-muted-foreground">Loading...</p>
+    return <QuietStage label="Checking your session" />
   }
   if (status !== "ready") {
     return <Navigate to="/sign-in" replace />

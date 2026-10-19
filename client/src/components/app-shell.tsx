@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router"
-import { Button } from "@/components/ui/button"
+import { AccountMenu } from "@/components/account-menu"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { useAuth } from "@/features/auth/auth-context"
 
 export function AppShell() {
@@ -10,51 +11,45 @@ export function AppShell() {
     return null
   }
 
+  const initial = current.tenant.name.trim().charAt(0).toUpperCase() || "M"
+
   return (
-    <div className="min-h-svh">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b px-6 py-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <p className="font-medium">{current.tenant.name}</p>
-          <nav className="flex items-center gap-3 text-sm">
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) => (isActive ? "font-medium" : "text-muted-foreground")}
-            >
-              Applications
-            </NavLink>
-            {current.privilege.isAdmin ? (
-              <>
-                <NavLink
-                  to="/invite"
-                  className={({ isActive }) => (isActive ? "font-medium" : "text-muted-foreground")}
-                >
-                  Invite
-                </NavLink>
-                <NavLink
-                  to="/users"
-                  className={({ isActive }) => (isActive ? "font-medium" : "text-muted-foreground")}
-                >
-                  Users
-                </NavLink>
-              </>
-            ) : null}
-          </nav>
-        </div>
-        <div className="flex items-center gap-3">
-          <p className="text-sm text-muted-foreground">{current.user.email}</p>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              signOut()
-              navigate("/sign-in")
-            }}
-          >
-            Log out
-          </Button>
+    <div className="shell">
+      <a className="skip-link" href="#content">
+        Skip to content
+      </a>
+      <header className="toolbar">
+        <div className="toolbar-inner">
+          <div className="brand">
+            <span className="tenant-mark" aria-hidden="true">
+              {initial}
+            </span>
+            <p className="brand-name">{current.tenant.name}</p>
+          </div>
+          {current.privilege.isAdmin ? (
+            <nav className="segmented toolbar-nav" aria-label="Sections">
+              <NavLink to="/" end>
+                Applications
+              </NavLink>
+              <NavLink to="/users">People</NavLink>
+              <NavLink to="/invite">Invite</NavLink>
+            </nav>
+          ) : null}
+          <div className="toolbar-end">
+            <ThemeToggle />
+            <AccountMenu
+              name={current.user.name}
+              email={current.user.email}
+              profileUrl={current.user.profileUrl}
+              onSignOut={() => {
+                signOut()
+                navigate("/sign-in")
+              }}
+            />
+          </div>
         </div>
       </header>
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
+      <main id="content" className="shell-main">
         <Outlet />
       </main>
     </div>

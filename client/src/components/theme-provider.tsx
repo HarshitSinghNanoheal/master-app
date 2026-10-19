@@ -1,6 +1,6 @@
 import * as React from "react"
 
-type Theme = "dark" | "light" | "system"
+export type Theme = "dark" | "light" | "system"
 type ResolvedTheme = "dark" | "light"
 
 type ThemeProviderProps = {
@@ -111,6 +111,15 @@ export function ThemeProvider({
 
       root.classList.remove("light", "dark")
       root.classList.add(resolvedTheme)
+      root.style.colorScheme = resolvedTheme
+
+      const themeColor = document.querySelector('meta[name="theme-color"]')
+      if (themeColor) {
+        themeColor.setAttribute(
+          "content",
+          resolvedTheme === "dark" ? "#1c1c1e" : "#f5f5f7"
+        )
+      }
 
       if (restoreTransitions) {
         restoreTransitions()

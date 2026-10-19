@@ -1,5 +1,6 @@
 import type { Application } from "../../generated/prisma/enums.ts"
 import { HttpError } from "../lib/http-error.ts"
+import { sendApplicationAddedMail } from "../mail/sendMail.ts"
 import { prisma } from "../prisma.ts"
 
 export type TenantUser = {
@@ -72,6 +73,28 @@ async function isTenantMember(userId: number, tenantId: number): Promise<boolean
   return member !== null
 }
 
+async function notifyAddedApplications(
+  tenantId: number,
+  user: { email: string; name: string },
+  applications: Application[],
+): Promise<void> {
+  if (applications.length === 0) {
+    return
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { name: true },
+  })
+  const tenantName = tenant?.name ?? "your organization"
+
+  await Promise.all(
+    applications.map((application) =>
+      sendApplicationAddedMail(user.email, user.name, application, tenantName),
+    ),
+  )
+}
+
 export async function inviteTenantUser(
   tenantId: number,
   input: { email: string; name: string; isAdmin: boolean; applications: Application[] },
@@ -129,7 +152,9 @@ export async function inviteTenantUser(
         },
       })
 
-  return toTenantUser(user)
+  const tenantUser = toTenantUser(user)
+  await notifyAddedApplications(tenantId, tenantUser, tenantUser.applications)
+  return tenantUser
 }
 
 export async function updateTenantUser(
@@ -140,6 +165,13 @@ export async function updateTenantUser(
   if (!(await isTenantMember(userId, tenantId))) {
     throw new HttpError(404, "User is not in this tenant")
   }
+
+  const previous = await prisma.privilege.findUnique({
+    where: { userId_tenantId: { userId, tenantId } },
+    select: { applications: true },
+  })
+  const alreadyGranted = new Set(previous?.applications ?? [])
+  const added = input.applications.filter((application) => !alreadyGranted.has(application))
 
   await prisma.privilege.upsert({
     where: { userId_tenantId: { userId, tenantId } },
@@ -168,7 +200,9 @@ export async function updateTenantUser(
     },
   })
 
-  return toTenantUser(user)
+  const tenantUser = toTenantUser(user)
+  await notifyAddedApplications(tenantId, tenantUser, added)
+  return tenantUser
 }
 
 export async function removeTenantUser(tenantId: number, userId: number, actorId: number): Promise<void> {
