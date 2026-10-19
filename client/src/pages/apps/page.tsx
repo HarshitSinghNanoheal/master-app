@@ -1,11 +1,18 @@
 import { ArrowUpRight } from "lucide-react"
 import { Link } from "react-router"
+import okonomiyakiLogo from "@/assets/okonomiyaki-logo.png"
+import resolvLogo from "@/assets/resolv-logo.png"
 import {
   APPLICATIONS,
   applicationOpenUrl,
 } from "@/features/applications/catalog"
 import { useAuth } from "@/features/auth/auth-context"
 import { readLocalSession } from "@/features/auth/session"
+
+const LOGOS: Partial<Record<(typeof APPLICATIONS)[number]["id"], string>> = {
+  RESOLV: resolvLogo,
+  VAPT: okonomiyakiLogo,
+}
 
 const SUMMARIES: Partial<Record<(typeof APPLICATIONS)[number]["id"], string>> =
   {
@@ -24,10 +31,16 @@ function ApplicationTile({
   summary?: string
   href: string | null
 }) {
+  const logo = LOGOS[id as keyof typeof LOGOS]
   const body = (
     <>
-      <span className="app-mark" data-app={id} aria-hidden="true">
-        {name.charAt(0)}
+      <span
+        className="app-mark"
+        data-app={id}
+        data-logo={logo ? "" : undefined}
+        aria-hidden="true"
+      >
+        {logo ? <img src={logo} alt="" /> : name.charAt(0)}
       </span>
       <span className="app-copy">
         <h2 className="app-name">{name}</h2>
