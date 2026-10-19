@@ -1,5 +1,5 @@
-export const RESOLV_URL = "http://localhost:5174"
-export const VAPT_URL = "https://okonomiyaki.haya.cloud/"
+export const RESOLV_URL = "https://resolv-prod.haya.cloud"
+export const VAPT_URL = "https://okonomiyaki.haya.cloud"
 
 export const APPLICATIONS = [
   { id: "RESOLV", name: "Resolv" },
